@@ -1,3 +1,16 @@
+"""
+Parses EMu XML files into Python dictionaries using schema information from XML processing instructions.
+
+This module provides functions to:
+- Extract and parse schema blocks from EMu XML files
+- Recursively parse tuples and tables according to the schema
+- Convert EMu XML files to lists of dictionaries for further processing
+
+Typical usage:
+    >>> from xml_parser import xml_to_json
+    >>> records = xml_to_json('path/to/emu.xml')
+"""
+
 import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List

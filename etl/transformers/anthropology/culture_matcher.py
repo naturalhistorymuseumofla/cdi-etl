@@ -2,6 +2,9 @@ import re
 from typing import Dict, List, Set
 
 import pandas as pd
+from pyairtable import Table
+
+from config.settings import settings
 
 
 class CultureMatcher:
@@ -9,15 +12,38 @@ class CultureMatcher:
     Matches motif strings to culture names and their parents using a lookup built from a cultures DataFrame.
     """
 
-    def __init__(self, cultures: pd.DataFrame):
+    def __init__(self, cultures: pd.DataFrame = pd.DataFrame()) -> None:
         """
         Initializes the matcher and builds the lookup dictionaries.
 
         Args:
             cultures: A DataFrame with 'name', 'endonyms', and 'parent_culture' columns.
         """
-        self.culture_lookup = self._build_culture_lookup(cultures)
-        self.parent_lookup = self._build_parent_lookup(cultures)
+        if cultures.empty:
+            cultures = self.airtable_to_dataframe()
+            self.culture_lookup = self._build_culture_lookup(cultures)
+            self.parent_lookup = self._build_parent_lookup(cultures)
+        else:
+            self.culture_lookup = self._build_culture_lookup(cultures)
+            self.parent_lookup = self._build_parent_lookup(cultures)
+
+    @staticmethod
+    def _fetch_airtable_data():
+        """Connects to Airtable using settings from the config."""
+        table = Table(
+            settings.airtable_pat, settings.airtable_base_id, "Anthro Cultures"
+        )
+        return table.all()
+
+    def airtable_to_dataframe(self) -> pd.DataFrame:
+        """Fetches all records from the given Airtable table and converts them to a DataFrame."""
+        records = self._fetch_airtable_data()
+        cultures = pd.DataFrame([record["fields"] for record in records]).fillna("")
+        cultures["parent_culture"] = cultures["name (from parent_culture)"].apply(
+            lambda x: x[0] if x else ""
+        )
+        cultures["synonyms"] = cultures["synonyms"].apply(lambda x: x if x else [])
+        return cultures
 
     @staticmethod
     def extract_terms(term: str) -> List[str]:
@@ -110,5 +136,4 @@ class CultureMatcher:
                 parents.add(parent)
         children_only = matched - parents
 
-        return list(children_only)
         return list(children_only)
