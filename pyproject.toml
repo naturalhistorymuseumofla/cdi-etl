@@ -1,14 +1,19 @@
 [project]
 name = "cdi-etl"
 version = "0.1.0"
-description = "Add your description here"
+description = "ETL scripts for NHMLAC Collections Data Infrastructure (CDI)"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "airtable>=0.4.8",
     "pandas>=2.3.2",
-    "pyairtable>=3.2.0",
-    "pydantic>=2.11.7",
-    "pydantic-settings>=2.10.1",
-    "python-dotenv>=1.1.1",
+    "etl",
+    "pyarrow>=21.0.0",
 ]
+
+
+[tool.uv.sources]
+etl = { path = "./src", editable = true }
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
