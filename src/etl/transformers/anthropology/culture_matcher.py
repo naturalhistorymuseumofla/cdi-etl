@@ -30,9 +30,15 @@ class CultureMatcher:
     @staticmethod
     def _fetch_airtable_data():
         """Connects to Airtable using settings from the config."""
-        table = Table(
-            settings.airtable_pat, settings.airtable_base_id, "Anthro Cultures"
-        )
+        api_key = settings.airtable_pat
+        base_id = settings.airtable_base_id
+
+        if not api_key or not base_id:
+            raise RuntimeError(
+                "Airtable credentials missing: set AIRTABLE_PAT and AIRTABLE_BASE_ID in environment or .env"
+            )
+
+        table = Table(api_key, base_id, "Anthro Cultures")
         return table.all()
 
     def airtable_to_dataframe(self) -> pd.DataFrame:
