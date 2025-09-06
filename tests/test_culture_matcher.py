@@ -1,6 +1,6 @@
 import pandas as pd
 
-from etl.transformers.anthropology.culture_matcher import CultureMatcher
+from etl.transformers.anthropology.cultures import Cultures
 
 
 def make_sample_cultures_df():
@@ -23,7 +23,7 @@ def make_sample_cultures_df():
 
 def test_extract_terms_various_formats():
     s = "Motif (Alpha, Beta) / Gamma - Delta or Epsilon"
-    terms = CultureMatcher.extract_terms(s)
+    terms = Cultures.extract_terms(s)
     # Lowercased unique terms expected
     expected = {"alpha", "beta", "gamma", "delta", "epsilon", "motif"}
     assert set(terms) >= expected
@@ -31,7 +31,7 @@ def test_extract_terms_various_formats():
 
 def test_build_lookups_and_parents():
     df = make_sample_cultures_df()
-    cm = CultureMatcher(cultures=df)
+    cm = Cultures(cultures=df)
 
     # culture_lookup should map synonyms and main names (lowercased) to main name
     lookup = cm.culture_lookup
@@ -49,7 +49,7 @@ def test_build_lookups_and_parents():
 
 def test_get_all_parents_chain():
     df = make_sample_cultures_df()
-    cm = CultureMatcher(cultures=df)
+    cm = Cultures(cultures=df)
 
     parents_of_c = cm._get_all_parents("C")
     assert parents_of_c == {"B", "A"}
@@ -57,7 +57,7 @@ def test_get_all_parents_chain():
 
 def test_match_children_only_and_synonyms():
     df = make_sample_cultures_df()
-    cm = CultureMatcher(cultures=df)
+    cm = Cultures(cultures=df)
 
     # If motif contains both A and B terms, parent A should be removed and only B returned
     res = cm.match("Alpha / Beta")

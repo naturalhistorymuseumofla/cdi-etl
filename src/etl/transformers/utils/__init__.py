@@ -1,7 +1,9 @@
 from typing import Iterable, List
 
 
-def flatten_field(field: Iterable[List[dict]], field_name: str) -> List[List[str]]:
+def flatten_field(
+    field: Iterable[List[dict]] | None, field_name: str
+) -> List[List[str]]:
     """
     Extracts the values for a given field name from a nested list of dictionaries.
 
@@ -12,6 +14,8 @@ def flatten_field(field: Iterable[List[dict]], field_name: str) -> List[List[str
     Returns:
         A nested list of strings, where each inner list contains the extracted values for the specified field name.
     """
+    if field is None:
+        return []
     return [[d[field_name] for d in sublist] for sublist in field]
 
 
