@@ -1,7 +1,7 @@
 import re
+from typing import Tuple
 
 import pandas as pd
-from typing import Tuple
 
 from ..utils import flatten_field, to_pg_array
 from .cultures import Cultures
@@ -80,7 +80,7 @@ def transform_anthropology_catalogue(
         matched_ids: list = []
         if row.get("cultural_attribution"):
             # cultural_attribution is expected to be a list of motif strings
-            matched_ids = cultures.match_list_ids(row["cultural_attribution"])
+            matched_ids = cultures.match_list(row["cultural_attribution"])
             for cid in matched_ids:
                 join_rows.append({"catalogue_irn": irn, "cultures_id": cid})
 

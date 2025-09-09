@@ -8,8 +8,9 @@ if __name__ == "__main__":
     records = xml_to_json("data/anthropology_catalogue.xml")
     df = pd.DataFrame(records).fillna("")
 
-    # Transform
-    df = transform_anthropology_catalogue(df)
+    # Transform -> returns (catalogue_df, join_df)
+    catalogue_df, join_df = transform_anthropology_catalogue(df)
 
     # Load
-    df.to_csv("data/anthro_catalogue_transformed.csv", index=False)
+    catalogue_df.to_csv("data/anthro_catalogue_transformed.csv", index=False)
+    join_df.to_csv("data/anthro_catalogues_cultures_join.csv", index=False)

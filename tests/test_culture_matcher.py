@@ -1,72 +1,59 @@
-import pandas as pd
+from typing import List, Set
 
 from etl.transformers.anthropology.cultures import Cultures
 
-
-def make_sample_cultures_df():
-    """Return a small DataFrame that represents cultures with synonyms and parents.
-
-    Structure:
-      A (synonyms: Alpha, Al)  -- no parent
-      B (synonyms: Beta)       -- parent A
-      C (synonyms: [])         -- parent B
-      D (synonyms: Delta)      -- no parent
-    """
-    rows = [
-        {"name": "A", "synonyms": ["Alpha", "Al"], "parent_culture": ""},
-        {"name": "B", "synonyms": ["Beta"], "parent_culture": "A"},
-        {"name": "C", "synonyms": [], "parent_culture": "B"},
-        {"name": "D", "synonyms": ["Delta"], "parent_culture": ""},
-    ]
-    return pd.DataFrame(rows)
+cultures = Cultures()
 
 
-def test_extract_terms_various_formats():
-    s = "Motif (Alpha, Beta) / Gamma - Delta or Epsilon"
-    terms = Cultures.extract_terms(s)
-    # Lowercased unique terms expected
-    expected = {"alpha", "beta", "gamma", "delta", "epsilon", "motif"}
-    assert set(terms) >= expected
+def match(motif: str) -> Set[str]:
+    matches = cultures.match(motif)
+    if matches:
+        return {
+            cultures.get_name_by_id(id) for id in matches if cultures.get_name_by_id(id)
+        }
+    return set()
 
 
-def test_build_lookups_and_parents():
-    df = make_sample_cultures_df()
-    cm = Cultures(cultures=df)
-
-    # culture_lookup should map synonyms and main names (lowercased) to main name
-    lookup = cm.culture_lookup
-    assert lookup.get("a") == "A"
-    assert lookup.get("alpha") == "A"
-    assert lookup.get("beta") == "B"
-    assert lookup.get("delta") == "D"
-
-    # parent_lookup should map child -> parent when present
-    parent = cm.parent_lookup
-    assert parent.get("B") == "A"
-    assert parent.get("C") == "B"
-    assert "A" not in parent or parent.get("A") == ""
+def match_list(motifs: List[str]) -> Set[str]:
+    matches = cultures.match_list(motifs)
+    if matches:
+        return {
+            cultures.get_name_by_id(id) for id in matches if cultures.get_name_by_id(id)
+        }
+    return set()
 
 
-def test_get_all_parents_chain():
-    df = make_sample_cultures_df()
-    cm = Cultures(cultures=df)
+def test_match():
+    # Basic test
+    assert match("Samoan") == {"Samoan"}
+    assert match("possibly Ica") == {"Ica"}
+    assert match("Tsimshian") == {"Tsimshian"}
 
-    parents_of_c = cm._get_all_parents("C")
-    assert parents_of_c == {"B", "A"}
+    # Test separators
+    assert match("Senufo/Senoufo") == {"Senufo"}
+    assert match("Achomawi/Achumawi (Pit River Tribe)") == {
+        "Achomawi",
+        "Pit River Tribe",
+    }
+    assert match("Bannock (Banate) - Nez Perce (Nimiipuu)") == {
+        "Nez Perce",
+        "Bannock",
+    }
+    assert match("Pawnee (Chaticks-si-Chaticks); Osage style") == {
+        "Pawnee",
+        "Osage",
+    }
+
+    # Test diacritic markers
+    assert match("Chimu") == {"Chimú"}
+
+    # Test empty and None inputs
+    assert match("") == set()
+    assert match(None) == set()  # type: ignore
 
 
-def test_match_children_only_and_synonyms():
-    df = make_sample_cultures_df()
-    cm = Cultures(cultures=df)
+def test_match_list():
+    assert match_list(["Abnaki/Abenaki (Alnobak)"]) == {"Abenaki"}
 
-    # If motif contains both A and B terms, parent A should be removed and only B returned
-    res = cm.match("Alpha / Beta")
-    assert set(res) == {"B"}
-
-    # Synonym matching for D
-    res2 = cm.match("Delta")
-    assert set(res2) == {"D"}
-
-    # Matching C by name should return C
-    res3 = cm.match("C")
-    assert set(res3) == {"C"}
+    assert match_list(None) == set()  # type: ignore
+    assert match_list(None) == set()  # type: ignore
