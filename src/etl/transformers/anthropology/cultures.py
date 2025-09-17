@@ -259,7 +259,7 @@ class Cultures:
         # Remove any culture that is a parent of another matched culture
         parents = set()
         for id in matched:
-            parent = self.parent_lookup.get(id)
+            parent = self.parent_lookup.get(id)  # type: ignore
             if parent in matched:
                 parents.add(parent)
         children_only = matched - parents
