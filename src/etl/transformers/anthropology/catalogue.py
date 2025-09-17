@@ -92,4 +92,32 @@ def transform_anthropology_catalogue(
     # build join table DataFrame
     join_df = pd.DataFrame(join_rows, columns=["catalogue_irn", "cultures_id"])
 
+    # Drop "cultures_id" column
+    df.drop(columns=["cultures_ids"], inplace=True)
+
+    # Rename columns to match target schema
+    df.rename(
+        columns={
+            "AntSiteRef": "sites",
+            "AntDonorRef": "donors",
+            "AntCollectedByRef": "collectors",
+        },
+        inplace=True,
+    )
+
+    # Impose data types
+    df["date_received"] = (
+        df["date_received"]
+        .apply(lambda v: "" if pd.isna(v) else str(v))
+        .astype("string")
+    )
+
+    # Final cleanup: convert lists to Postgres array strings
+    df["cultural_attribution"] = df["cultural_attribution"].apply(to_pg_array)
+    df["material_type"] = df["material_type"].apply(to_pg_array)
+    df["site_name"] = df["site_name"].apply(to_pg_array)
+    df["collectors"] = df["collectors"].apply(to_pg_array)
+    df["material_type_verbatim"] = df["material_type_verbatim"].apply(to_pg_array)
+    df["donors"] = df["donors"].apply(to_pg_array)
+
     return df, join_df

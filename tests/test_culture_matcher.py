@@ -25,9 +25,13 @@ def match_list(motifs: List[str]) -> Set[str]:
 
 def test_match():
     # Basic test
-    assert match("Samoan") == {"Samoan"}
     assert match("possibly Ica") == {"Ica"}
+    assert match("Apinage") == {"Apinajé"}
+    assert match("Samoan") == {"Samoan"}
     assert match("Tsimshian") == {"Tsimshian"}
+
+    # Match on match_term
+    assert match("Egyptian (general)") == {"Modern Egyptian"}
 
     # Test separators
     assert match("Senufo/Senoufo") == {"Senufo"}

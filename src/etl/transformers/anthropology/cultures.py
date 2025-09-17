@@ -1,6 +1,5 @@
 import re
 import unicodedata
-from csv import DictReader
 from typing import Dict, List, Set
 
 import pandas as pd
@@ -38,8 +37,7 @@ class Cultures:
         self.culture_lookup = self._build_culture_lookup(self.cultures)
         self.parent_lookup = self._build_parent_lookup(self.cultures)
 
-    @staticmethod
-    def _fetch_airtable_data():
+    def _fetch_airtable_data(self):
         """Connects to Airtable using settings from the config."""
         api_key = settings.airtable_pat
         base_id = settings.airtable_base_id
@@ -61,6 +59,7 @@ class Cultures:
             lambda x: x[0] if x else ""
         )
         cultures["synonyms"] = cultures["synonyms"].apply(lambda x: x if x else [])
+
         return cultures
 
     def clean_culture_df(self, cultures: pd.DataFrame) -> pd.DataFrame:
@@ -72,7 +71,6 @@ class Cultures:
             "type",
             "region",
             "parent_id",
-            "parent_culture",
             "age_start",
             "age_end",
             "synonyms",
@@ -84,14 +82,30 @@ class Cultures:
             "record_id",
         ]
         cultures = cultures[cols]
+        cultures.rename(columns={"record_id": "airtable_id"}, inplace=True)
+
+        # Convert values to proper types
+        cultures["age_start"] = pd.to_numeric(
+            cultures["age_start"], errors="coerce"
+        ).astype("Int64")
+        cultures["age_end"] = pd.to_numeric(
+            cultures["age_end"], errors="coerce"
+        ).astype("Int64")
+
         return cultures
 
     def get_cultures_dataframe(self) -> pd.DataFrame:
         """Returns the cultures DataFrame used to build the lookups."""
         return self.cultures
 
-    @staticmethod
-    def extract_terms(term: str) -> List[str]:
+    def _strip_diacritics(self, s: str) -> str:
+        """
+        Normalize text to remove diacritic markers
+        """
+        nkfd = unicodedata.normalize("NFKD", s)
+        return "".join(ch for ch in nkfd if not unicodedata.combining(ch))
+
+    def extract_terms(self, term: str) -> List[str]:
         """
         Extracts all possible terms from a motif string, including those in parentheticals.
         """
@@ -129,13 +143,7 @@ class Cultures:
             if part:
                 terms.append(part)
 
-        # Normalize: remove diacritics, lower-case, remove empty entries and deduplicate.
-        # Use Unicode NFKD decomposition and drop combining marks so e.g. 'Apinajé' -> 'Apinaje'.
-        def _strip_diacritics(s: str) -> str:
-            nkfd = unicodedata.normalize("NFKD", s)
-            return "".join(ch for ch in nkfd if not unicodedata.combining(ch))
-
-        normalized = {(_strip_diacritics(t).lower()) for t in terms if t}
+        normalized = {(self._strip_diacritics(t).lower()) for t in terms if t}
         return list(normalized)
 
     @staticmethod
@@ -157,43 +165,44 @@ class Cultures:
 
         return lookup
 
-    @staticmethod
-    def _build_name_id_lookup(cultures: pd.DataFrame) -> Dict[str, str]:
+    def _build_name_id_lookup(self, cultures: pd.DataFrame) -> Dict[str, int]:
         """Build a lookup mapping lowercased names and synonyms to the culture id."""
-        lookup: Dict[str, str] = {}
+        lookup: Dict[str, int] = {}
         for _, row in cultures.iterrows():
-            main_name = str(row.get("name", "")).strip()
+            # Allow for matches on match_term without any cleaning
+            match_term = str(row.get("match_term", "")).strip().lower()
+            if match_term and row.get("id"):
+                lookup[match_term] = int(row.get("id", 0))
+
+            # Allow for matches on name
+            main_name = self._strip_diacritics(row.get("name", "").strip())
             cid = row.get("id")
             if pd.isna(cid) or cid == "":
                 continue
-            cid = str(cid)
             if main_name:
                 lookup[main_name.lower()] = cid
             synonyms = row.get("synonyms")
             if synonyms:
                 for synonym in synonyms:
-                    syn = str(synonym).strip()
+                    syn = str(synonym).strip().lower()
                     if syn:
-                        lookup[syn.lower()] = cid
+                        lookup[syn] = cid
+                    if syn != self._strip_diacritics(syn):
+                        lookup[self._strip_diacritics(syn)] = cid
         return lookup
 
     @staticmethod
-    def _build_parent_lookup_ids(cultures: pd.DataFrame) -> Dict[str, str]:
+    def _build_parent_lookup_ids(cultures: pd.DataFrame) -> Dict[str, int]:
         """Build a mapping from child id -> parent id (both as strings) where available."""
-        parent_lookup: Dict[str, str] = {}
+        parent_lookup: Dict[str, int] = {}
         for _, row in cultures.iterrows():
             cid = row.get("id")
             if pd.isna(cid) or cid == "":
                 continue
-            cid = str(cid)
+            cid = cid
             parent_id = row.get("parent_id")
-            # parent_id may be a list or a single value; handle common cases
-            if isinstance(parent_id, list) and parent_id:
-                parent = str(parent_id[0]).strip()
-            else:
-                parent = str(parent_id).strip() if parent_id not in (None, "") else ""
-            if parent:
-                parent_lookup[cid] = parent
+            if parent_id:
+                parent_lookup[cid] = parent_id
         return parent_lookup
 
     @staticmethod
@@ -203,7 +212,7 @@ class Cultures:
         """
         parent_lookup = {}
         for _, row in cultures.iterrows():
-            id = str(row["id"]).strip()
+            id = row["id"]
             parent = row.get("parent_culture")
             if id and pd.notnull(parent) and str(parent).strip():
                 parent_lookup[id] = str(parent).strip()
@@ -237,12 +246,15 @@ class Cultures:
         if not motif:
             return []
 
-        terms = self.extract_terms(motif)
-        matched = set()
-        for t in terms:
-            id = self.name_id_lookup.get(t)
-            if id is not None:
-                matched.add(id)
+        matched = {(self.name_id_lookup.get(motif.lower(), ""))}
+
+        if not bool(*matched):
+            matched = set()
+            terms = self.extract_terms(motif)
+            for t in terms:
+                id = int(self.name_id_lookup.get(t, 0))
+                if id:
+                    matched.add(id)
 
         # Remove any culture that is a parent of another matched culture
         parents = set()
@@ -252,7 +264,7 @@ class Cultures:
                 parents.add(parent)
         children_only = matched - parents
 
-        return list(children_only)
+        return list(children_only)  # type: ignore
 
     def get_id(self, name: str) -> int | None:
         """
