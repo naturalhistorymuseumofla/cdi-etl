@@ -1,5 +1,7 @@
 import pandas as pd
 
+from ..utils import flatten_field, to_pg_array
+
 
 def transform_history_catalogue(
     df: pd.DataFrame,
@@ -15,10 +17,7 @@ def transform_history_catalogue(
 
     """
     # Implement the transformation logic here
-    df_cleaned = df.copy()
-    df_cleaned.columns = (
-        df_cleaned.columns.str.strip().str.lower().str.replace(" ", "_")
-    )
-    df_cleaned = df_cleaned.fillna("")
 
-    return df_cleaned
+    df["creators"] = df["CreatorGroup"].apply(flatten_field, field_name="CreCreator")
+
+    return df
