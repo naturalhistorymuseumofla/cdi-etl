@@ -111,4 +111,7 @@ data/
 *.db
 
 # Supabase
-supabase/
+supabase/.branches/
+supabase/.temp/
+supabase/seed.sql
+supabase/signing_keys.json

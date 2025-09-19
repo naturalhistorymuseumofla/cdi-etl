@@ -1,6 +1,7 @@
 import pandas as pd
 
 from etl.extractors import xml_to_json
+from etl.loaders.supabase_loader import SupabaseLoader
 from etl.transformers.anthropology import Cultures, transform_anthropology_catalogue
 
 if __name__ == "__main__":
@@ -15,11 +16,10 @@ if __name__ == "__main__":
     cultures_df = Cultures().get_cultures_dataframe()
 
     # Load
-    catalogue_df.to_csv("data/anthro_catalogue_transformed.csv", index=False)
-    join_df.to_csv("data/anthro_catalogues_cultures_join.csv", index=False)
-    cultures_df.to_csv("data/cultures.csv", index=False)
-
-    print("Wrote files:")
-    print(" - data/anthro_catalogue_transformed.csv")
-    print(" - data/anthro_catalogues_cultures_join.csv")
-    print(" - data/cultures.csv")
+    loader = SupabaseLoader()
+    records, operations = loader.load_dataframe(
+        "anthropology_catalogue", catalogue_df, upsert=True
+    )
+    print(f"\nProcessed {len(records)} total records in anthropology_catalogue:")
+    print(f" Inserted: {operations['inserted']}")
+    print(f" Updated: {operations['updated']}")

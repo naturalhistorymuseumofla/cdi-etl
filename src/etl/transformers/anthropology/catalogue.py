@@ -1,5 +1,5 @@
 import re
-from typing import Tuple
+from typing import Any, Tuple
 
 import pandas as pd
 
@@ -15,6 +15,11 @@ def clean_material_term(term):
     term = term.replace("?", "")
     term = " ".join(term.split())
     return term.strip()
+
+
+def fill_na(series: pd.Series, na_value: Any) -> None:
+    """Fill NaN values with empty strings in string columns of a DataFrame."""
+    series.fillna(na_value, inplace=True)
 
 
 def transform_anthropology_catalogue(
@@ -43,7 +48,6 @@ def transform_anthropology_catalogue(
     sites = pd.DataFrame(sites).fillna("")
     sites["site_name"] = flatten_field(sites["site_name"], "SitSiteName")
     sites.drop(columns=["irn"], inplace=True)
-    sites["site_name"] = sites["site_name"].apply(lambda x: to_pg_array(x))
 
     # Reset the index of the DataFrames, combine two dataframes
     df = df.reset_index(drop=True)
@@ -112,12 +116,23 @@ def transform_anthropology_catalogue(
         .astype("string")
     )
 
-    # Final cleanup: convert lists to Postgres array strings
-    df["cultural_attribution"] = df["cultural_attribution"].apply(to_pg_array)
-    df["material_type"] = df["material_type"].apply(to_pg_array)
-    df["site_name"] = df["site_name"].apply(to_pg_array)
-    df["collectors"] = df["collectors"].apply(to_pg_array)
-    df["material_type_verbatim"] = df["material_type_verbatim"].apply(to_pg_array)
-    df["donors"] = df["donors"].apply(to_pg_array)
+    # Convert empty values to correct types
+    df["collectors"] = df["collectors"].apply(
+        lambda x: x if x != [{"irn": "", "collected_by": ""}] else []
+    )
+    df["donors"] = df["donors"].apply(
+        lambda x: x if x != [{"irn": "", "donated_by": ""}] else []
+    )
+    df["sites"] = df["sites"].apply(
+        lambda x: x
+        if x != [{"irn": "", "site_name": "", "site_number": "", "site_summary": ""}]
+        else []
+    )
+    df["site_name"] = df["site_name"].apply(lambda x: x if x != [""] else [])
+
+    fill_na(df["cultural_attribution"], [])
+
+    # Replace empty strings with None for JSON compatibility
+    df.replace({"": None}, inplace=True)
 
     return df, join_df
