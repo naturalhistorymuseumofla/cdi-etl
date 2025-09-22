@@ -11,7 +11,6 @@ def transform_biology_catalogue(df: pd.DataFrame) -> pd.DataFrame:
     Transforms the biology catalogue DataFrame by cleaning and normalizing fields.
     """
 
-    # Clean and normalize relevant fields
     df["sex"] = df["sex"].apply(clean_sex)
     df["caste"] = df["sex"].apply(clean_caste)
     df["life_stage"] = df["sex"].apply(clean_life_stage)
@@ -19,5 +18,6 @@ def transform_biology_catalogue(df: pd.DataFrame) -> pd.DataFrame:
     df["side"] = df["side"].apply(clean_side)
     df["type_status"] = df["type_status"].apply(clean_type_status)
     df["department"] = df["department"].apply(lambda x: x.lower())
+    df["date_emu_record_modified"] = df["date_emu_record_modified"].astype(str)
 
     return df

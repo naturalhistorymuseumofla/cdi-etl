@@ -7,6 +7,8 @@ from pyairtable import Table
 
 from config.settings import settings
 
+from ..utils import to_pg_array
+
 
 class Cultures:
     """
@@ -80,9 +82,16 @@ class Cultures:
             "aat_notes",
             "description",
             "record_id",
+            "date_modified",
         ]
         cultures = cultures[cols]
-        cultures.rename(columns={"record_id": "airtable_id"}, inplace=True)
+        cultures.rename(
+            columns={
+                "record_id": "airtable_id",
+                "date_modified": "date_airtable_record_modified",
+            },
+            inplace=True,
+        )
 
         # Convert values to proper types
         cultures["age_start"] = pd.to_numeric(
@@ -91,6 +100,14 @@ class Cultures:
         cultures["age_end"] = pd.to_numeric(
             cultures["age_end"], errors="coerce"
         ).astype("Int64")
+
+        # Convert lists to pg arrays
+        cultures["synonyms"] = cultures["synonyms"].apply(
+            lambda x: to_pg_array(x) if isinstance(x, list) else to_pg_array([])
+        )
+        cultures["endonyms"] = cultures["endonyms"].apply(
+            lambda x: to_pg_array(x) if isinstance(x, list) else to_pg_array([])
+        )
 
         return cultures
 
@@ -246,11 +263,14 @@ class Cultures:
         if not motif:
             return []
 
+        # Debug for problematic motifs
+
         matched = {(self.name_id_lookup.get(motif.lower(), ""))}
 
         if not bool(*matched):
             matched = set()
             terms = self.extract_terms(motif)
+
             for t in terms:
                 id = int(self.name_id_lookup.get(t, 0))
                 if id:

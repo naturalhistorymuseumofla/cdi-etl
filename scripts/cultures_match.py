@@ -24,7 +24,7 @@ if __name__ == "__main__":
     cultures = Cultures()
     cultures_df = cultures.get_cultures_dataframe()
 
-    motifs = flatten_field(catalogue_df["cultural_attribution"], "AntMotif")
+    motifs = flatten_field(catalogue_df["cultural_attribution_verbatim"], "AntMotif")
     motifs = [m for m in motifs if m]
 
     motif_counts = pd.Series(motifs).value_counts().to_frame()

@@ -18,6 +18,6 @@ def transform_history_catalogue(
     """
     # Implement the transformation logic here
 
-    df["creators"] = df["CreatorGroup"].apply(flatten_field, field_name="CreCreator")
+    df["creators"] = df["CreatorGroup"].apply(flatten_field, field_name="CreRole")
 
     return df

@@ -17,9 +17,15 @@ if __name__ == "__main__":
 
     # Load
     loader = SupabaseLoader()
-    records, operations = loader.load_dataframe(
-        "anthropology_catalogue", catalogue_df, upsert=True
+    loader.load_dataframe(
+        "anthropology_catalogue", catalogue_df, upsert=True, primary_key="irn"
     )
-    print(f"\nProcessed {len(records)} total records in anthropology_catalogue:")
-    print(f" Inserted: {operations['inserted']}")
-    print(f" Updated: {operations['updated']}")
+    loader.load_dataframe(
+        "anthropology_cultures", cultures_df, primary_key="id", upsert=True
+    )
+    loader.sync_join_table(
+        "anthropology_catalogue_cultures_join",
+        join_df,
+        source_key="catalogue_irn",
+        target_key="cultures_id",
+    )

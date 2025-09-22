@@ -3,7 +3,7 @@ from typing import Any, Tuple
 
 import pandas as pd
 
-from ..utils import flatten_field, to_pg_array
+from ..utils import flatten_field
 from .cultures import Cultures
 
 
@@ -36,7 +36,7 @@ def transform_anthropology_catalogue(
     """
 
     # Flatten the cultural attribution and material type fields
-    df["cultural_attribution"] = flatten_field(
+    df["cultural_attribution_verbatim"] = flatten_field(
         df["cultural_attribution"], field_name="AntMotif"
     )
     df["material_type_verbatim"] = flatten_field(
@@ -82,9 +82,10 @@ def transform_anthropology_catalogue(
         irn = row.get("irn") if "irn" in row.index else None
 
         matched_ids: list = []
-        if row.get("cultural_attribution"):
+        if row.get("cultural_attribution_verbatim"):
             # cultural_attribution is expected to be a list of motif strings
-            matched_ids = cultures.match_list(row["cultural_attribution"])
+            matched_ids = cultures.match_list(row["cultural_attribution_verbatim"])
+
             for cid in matched_ids:
                 join_rows.append({"catalogue_irn": irn, "cultures_id": cid})
 
@@ -97,7 +98,7 @@ def transform_anthropology_catalogue(
     join_df = pd.DataFrame(join_rows, columns=["catalogue_irn", "cultures_id"])
 
     # Drop "cultures_id" column
-    df.drop(columns=["cultures_ids"], inplace=True)
+    df.drop(columns=["cultures_ids", "cultural_attribution"], inplace=True)
 
     # Rename columns to match target schema
     df.rename(
@@ -129,8 +130,6 @@ def transform_anthropology_catalogue(
         else []
     )
     df["site_name"] = df["site_name"].apply(lambda x: x if x != [""] else [])
-
-    fill_na(df["cultural_attribution"], [])
 
     # Replace empty strings with None for JSON compatibility
     df.replace({"": None}, inplace=True)

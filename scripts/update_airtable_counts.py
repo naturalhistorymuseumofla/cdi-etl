@@ -24,6 +24,3 @@ if __name__ == "__main__":
             record["record_id"].values[0],
             {"match_count": count, "recursive_match_count": total_count},
         )
-        print(
-            f"Updated {record['name'].values[0]}: count ({count}) total count({total_count})"
-        )
