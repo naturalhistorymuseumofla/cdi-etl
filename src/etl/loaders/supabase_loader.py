@@ -227,6 +227,7 @@ class SupabaseLoader:
         source_chunk_size = (
             100  # Use smaller chunks for source IDs to avoid URL length limits
         )
+        total_removed = 0
 
         # Process source IDs in smaller chunks to avoid URL length limits
         for i in range(0, len(source_ids), source_chunk_size):
@@ -258,12 +259,6 @@ class SupabaseLoader:
                 # Add records to our chunk collection
                 chunk_joins.extend(batch)
 
-                # Print progress for this chunk's pagination
-                print(
-                    f"Chunk {i // source_chunk_size + 1}, Page {page + 1}: "
-                    f"Retrieved {len(batch):,} relations"
-                )
-
                 # Move to next page
                 page += 1
 
@@ -273,10 +268,6 @@ class SupabaseLoader:
 
             # Add all relations from this chunk to main collection
             existing_joins.extend(chunk_joins)
-            print(
-                f"Chunk {i // source_chunk_size + 1} complete: "
-                f"Retrieved {len(chunk_joins):,} total relations for {len(source_id_chunk)} source IDs"
-            )
 
         print(f"\nFinished retrieving {len(existing_joins):,} total relations")
         source_id_counts = join_df[source_key].value_counts()
@@ -321,9 +312,6 @@ class SupabaseLoader:
             # Process each source_id's relations in a single delete call where possible
             total_removed = 0
             for source_id, target_ids in relations_by_source.items():
-                print(
-                    f" Source {source_key}={source_id} had {len(target_ids)} relations removed:"
-                )
                 target_id_chunks = list(target_ids)
                 for i in range(0, len(target_id_chunks), chunk_size):
                     chunk = target_id_chunks[i : i + chunk_size]

@@ -87,7 +87,7 @@ def transform_anthropology_catalogue(
             matched_ids = cultures.match_list(row["cultural_attribution_verbatim"])
 
             for cid in matched_ids:
-                join_rows.append({"catalogue_irn": irn, "cultures_id": cid})
+                join_rows.append({"catalogue_irn": int(irn), "cultures_id": int(cid)})  # type: ignore
 
         matched_ids_series.append(matched_ids)
 
