@@ -13,6 +13,11 @@ def flatten_field(
 
     Returns:
         A nested list of strings, where each inner list contains the extracted values for the specified field name.
+
+    Example:
+        >>> data = [[{"name": "Alice"}, {"name": "Bob"}], [{"name": "Charlie"}]]
+        >>> flatten_field(data, "name")
+        [['Alice', 'Bob'], ['Charlie']]
     """
     if field is None:
         return []
@@ -26,4 +31,9 @@ def to_pg_array(py_list):
     return "{" + ",".join('"' + str(x).replace('"', '\\"') + '"' for x in py_list) + "}"
 
 
-__all__ = ["flatten_field", "to_pg_array"]
+def rename_dict_keys(d: dict, key_map: dict) -> dict:
+    """Rename keys in a dictionary based on a provided mapping."""
+    return {key_map.get(k, k): v for k, v in d.items()}
+
+
+__all__ = ["flatten_field", "to_pg_array", "rename_dict_keys"]
