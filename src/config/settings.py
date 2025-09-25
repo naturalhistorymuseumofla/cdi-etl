@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     airtable_base_id: str | None = None
     supabase_url: str | None = None
     supabase_key: str | None = None
+    mindat_geomaterials_url: str | None = None
 
     # Use pydantic v2 style model_config with SettingsConfigDict
     model_config: SettingsConfigDict = SettingsConfigDict(env_file=".env")

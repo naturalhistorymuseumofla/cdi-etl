@@ -107,6 +107,12 @@ class SupabaseLoader:
         # Validate primary key if specified
         self._validate_primary_key(rows, primary_key)
 
+        # Replace NaN values with None in all rows
+        rows = [
+            {key: (None if pd.isna(value) else value) for key, value in row.items()}
+            for row in rows
+        ]
+
         results = []
         for i in range(0, len(rows), chunk_size):
             chunk = rows[i : i + chunk_size]
