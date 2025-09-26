@@ -35,7 +35,7 @@ create table mineralogy_taxonomy (
 );
 
 
-alter table anthropology_cultures enable row level security;
+alter table mineralogy_taxonomy enable row level security;
 
 -- Create trigger to automatically update the updated_at column
 create trigger handle_updated_at

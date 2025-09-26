@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import requests
 
 from config.settings import settings
 from supabase import create_client
@@ -53,6 +52,20 @@ class SupabaseLoader:
                 raise ValueError(
                     f"Record at index {i} is missing required '{primary_key}' field: {row}"
                 )
+
+    def _replace_nan_with_none(self, value):
+        """
+        Recursively replace NaN values with None in lists, dictionaries, or individual values.
+        """
+        if isinstance(value, list):  # If the value is a list, process each element
+            return [self._replace_nan_with_none(v) for v in value]
+        if pd.isna(value):  # Check for NaN
+            return None
+        if isinstance(
+            value, dict
+        ):  # If the value is a dictionary, process each key-value pair
+            return {k: self._replace_nan_with_none(v) for k, v in value.items()}
+        return value  # Return the value as-is if it's not NaN, a list, or a dictionary
 
     def _count_updates(self, responses: List[Dict[str, Any]]) -> dict:
         """
@@ -108,8 +121,9 @@ class SupabaseLoader:
         self._validate_primary_key(rows, primary_key)
 
         # Replace NaN values with None in all rows
+
         rows = [
-            {key: (None if pd.isna(value) else value) for key, value in row.items()}
+            {key: self._replace_nan_with_none(value) for key, value in row.items()}
             for row in rows
         ]
 
@@ -192,15 +206,15 @@ class SupabaseLoader:
         join_df: pd.DataFrame,
         source_key: str,
         target_key: str,
-        chunk_size: int = 1000,
+        chunk_size: int = 100,
+        keys_unique: bool = True,
     ) -> None:
         """
-        Synchronize a many-to-many join table based on a DataFrame of desired relationships.
+        Synchronize a join table based on a DataFrame of desired relationships.
 
         Args:
             join_table: Name of the join table to sync
             join_df: DataFrame containing the desired relationships with two columns:
-                    one for source IDs and one for target IDs
             source_key: Name of the source ID column in both join_df and join_table
             target_key: Name of the target ID column in both join_df and join_table
             chunk_size: Number of rows to process in each batch
@@ -222,69 +236,35 @@ class SupabaseLoader:
         # Remove any null values
         join_df = join_df.dropna(subset=[source_key, target_key])
 
-        # Get unique source IDs from the DataFrame
-        source_ids = join_df[source_key].unique()
+        # Fetch existing rows from the table
+        print(f"\nFetching existing rows from {join_table}...")
+        existing_rows = []
+        page_size = chunk_size  # Number of rows to fetch per request
+        source_ids = join_df[source_key].unique().tolist()
 
-        # Get only the relations that match our source IDs, using pagination
-        print("\nRetrieving matching relations from database...")
-        print(f"Filtering for {len(source_ids):,} source IDs")
-        existing_joins = []
-        page_size = 1000  # Keep pagination size at 1000
-        source_chunk_size = (
-            100  # Use smaller chunks for source IDs to avoid URL length limits
-        )
-        total_removed = 0
+        # Process source IDs in chunks to avoid overly long queries
+        for i in range(0, len(source_ids), chunk_size):
+            source_id_chunk = source_ids[i : i + chunk_size]
+            response = (
+                self.client.table(join_table)
+                .select(f"{source_key},{target_key}")
+                .in_(source_key, source_id_chunk)  # Filter rows by source_key
+                .limit(page_size)
+                .execute()
+            )
 
-        # Process source IDs in smaller chunks to avoid URL length limits
-        for i in range(0, len(source_ids), source_chunk_size):
-            source_id_chunk = source_ids[i : i + source_chunk_size]
-            chunk_joins = []
-            page = 0
+            batch = response.data
+            if batch:
+                existing_rows.extend(batch)
 
-            while True:
-                # Calculate offset for pagination
-                offset = page * page_size
-
-                # Fetch next page of matching relations for this chunk of source IDs
-                response = (
-                    self.client.table(join_table)
-                    .select("*")
-                    .in_(
-                        source_key, list(source_id_chunk)
-                    )  # Ensure consistent ordering
-                    .limit(page_size)
-                    .offset(offset)
-                    .execute()
-                )
-
-                # Get data and check if we got any records
-                batch = response.data
-                if not batch:
-                    break
-
-                # Add records to our chunk collection
-                chunk_joins.extend(batch)
-
-                # Move to next page
-                page += 1
-
-                # If we got less than a full page, we're done with this chunk
-                if len(batch) < page_size:
-                    break
-
-            # Add all relations from this chunk to main collection
-            existing_joins.extend(chunk_joins)
-
-        print(f"\nFinished retrieving {len(existing_joins):,} total relations")
-        source_id_counts = join_df[source_key].value_counts()
-        print(source_id_counts.head())
+        print(f"Fetched {len(existing_rows):,} existing rows.")
 
         # Build sets for comparison
         desired_relations = {
             (row[source_key], row[target_key]) for _, row in join_df.iterrows()
         }
         existing_relations = {
-            (record[source_key], record[target_key]) for record in existing_joins
+            (row[source_key], row[target_key]) for row in existing_rows
         }
 
         # Calculate differences
@@ -301,10 +281,13 @@ class SupabaseLoader:
             for i in range(0, len(new_records), chunk_size):
                 chunk = new_records[i : i + chunk_size]
                 # Use RPC call to handle upsert properly
-                self.client.table(join_table).upsert(
-                    json=chunk,
-                    on_conflict=f"{source_key},{target_key}",
-                ).execute()
+                if keys_unique:
+                    self.client.table(join_table).upsert(
+                        json=chunk,
+                        on_conflict=f"{source_key},{target_key}",
+                    ).execute()
+                else:
+                    self.client.table(join_table).upsert(json=chunk).execute()
 
         # Remove old relations in batches, grouping by source_id to minimize API calls
         if relations_to_remove:
@@ -327,7 +310,7 @@ class SupabaseLoader:
                             source_key, source_id
                         ).in_(target_key, chunk).execute()
                         total_removed += len(chunk)
-                    except requests.exceptions.RequestException:
+                    except Exception:
                         # Fall back to individual deletes if the URL is too long
                         for target_id in chunk:
                             self.client.table(join_table).delete().eq(
@@ -335,17 +318,7 @@ class SupabaseLoader:
                             ).eq(target_key, target_id).execute()
                             total_removed += 1
 
-        # Calculate actual final count
-        initial_count = len(existing_relations)
-        final_count = initial_count - len(relations_to_remove) + len(relations_to_add)
-
-        # Print summary
-        print(f"\nJoin table sync summary for {join_table}:")
-        print(f" Initial relations: {initial_count:,}")
-        print(f" Source records processed: {len(source_ids):,}")
-        print(f" Relations added: {len(relations_to_add):,}")
-        print(f" Relations removed: {total_removed:,}")
-        print(f" Final relations: {final_count:,}")
+        print(f"Synchronization complete for {join_table}.")
 
     def print_load_summary(self, table_name: str, summary: dict) -> None:
         """

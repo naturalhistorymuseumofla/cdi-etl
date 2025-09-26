@@ -2,6 +2,8 @@ import re
 
 import pandas as pd
 
+from .specimens import transform_mineralogy_specimens
+
 
 def clean_mineral_size(size: str) -> str:
     """Clean the mineral size string by removing leading/trailing spaces and converting to lowercase."""
@@ -107,8 +109,12 @@ def transform_mineralogy_catalogue(
         A transformed DataFrame with cleaned and normalized fields.
 
     """
+    specimens = transform_mineralogy_specimens(df)
+    df["specimens"] = specimens
 
-    df.drop(columns=["department"], inplace=True)
+    df.drop(
+        columns=["department", "specimen_taxon_group", "mineral_group"], inplace=True
+    )
     df["category"] = df["category"].apply(
         lambda x: x.lower() if isinstance(x, str) else x
     )
