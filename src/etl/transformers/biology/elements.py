@@ -1,198 +1,107 @@
-def clean_element(element: str) -> str:
-    """Cleans EMu element column and transforms into dwc:element"""
+import pandas as pd
 
-    if not element:
-        return ""
 
-    cleaned_val = element.replace("?", "").strip().lower()
+class Elements:
+    """Class to hold element data fetched from Airtable"""
 
-    elements = {
-        # Vertebrates
-        "pygidium": "pygidium",
-        "rib": "rib",
-        "vertebra": "vertebrae",
-        "cervix": "cervix",
-        "femur": "femur",
-        "humerus": "humerus",
-        "phalange": "phalange",
-        "tibia": "tibia",
-        "fibula": "fibula",
-        "metatarsa": "metatarsus",
-        "metacarpa": "metacarpus",
-        "tarsometatarsus": "tarsometatarsus",
-        "tibiotarsus": "tibiotarsus",
-        "phalanx": "phalanx",
-        "hypopharynx": "hypopharynx",
-        "pharynx": "pharynx",
-        "radius": "radius",
-        "ulna": "ulna",
-        "ischium": "ischium",
-        "pubis": "pubis",
-        "ilium": "ilium",
-        "scapula": "scapula",
-        "coracoid": "coracoid",
-        "interclavicle": "interclavicle",
-        "clavicle": "clavicle",
-        "prosternum": "prosternum",
-        "sternum": "sternum",
-        "chevron": "chevron",
-        "skull": "skull",
-        "premaxilla": "premaxillae",
-        "maxilla": "maxillae",
-        "premaxilla": "premaxillae",
-        "dentary": "dentary",
-        "quadrate": "quadrate",
-        "squamosal": "squamosal",
-        "egg": "egg",
-        "spiracle": "spiracle",
-        "adult": "adult",
-        "mouth part": "mouth part",
-        "labrum": "labrum",
-        "labium": "labium",
-        "palp": "palp",
-        "proboscis": "proboscis",
-        "labellum": "labellum",
-        "labrum": "labrum",
-        "head": "head",
-        "ovary": "ovary",
-        "osteoderm": "osteoderm",
-        "scale": "scale",
-        "scute": "scute",
-        "ocellus": "eye",
-        "tusk": "tusk",
-        "coprolite": "coprolite",
-        "sesamoid": "sesamoid",
-        "calcaneum": "calcaneum",
-        "ossicle": "ossicle",
-        "crania": "cranium",
-        "cranium": "cranium",
-        # Invertebrates
-        "antenna": "antenna",
-        "shell": "shell",
-        "test": "test",
-        "plate": "plate",
-        "colony": "colony",
-        "valve": "valve",
-        "corallite": "corallite",
-        "wing": "wing",
-        "cephalon": "cephalon",
-        "carapace": "carapace",
-        "cranidium": "cranidium",
-        "operculum": "operculum",
-        "ovipositor": "ovipositor",
-        "appendage": "appendage",
-        "pronotum": "pronotum",
-        "elytron": "elytron",
-        "rhodolith": "rhodolith",
-        "odolith": "odolith",
-        "hypostome": "hypostome",
-        "glabella": "glabella",
-        "scutellum": "scutellum",
-        "corallum": "corallum",
-        "telson": "telson",
-        "claw": "claw",
-        "arm": "arm",
-        "calyx": "calyx",
-        "crown": "crown",
-        "cercus": "cercus",
-        "flagellum": "flagellum",
-        "cranidium": "cranidium",
-        "tergite": "tergite",
-        "sternite": "sternite",
-        "sclerite": "sclerite",
-        "cauda": "caudae",
-        "metasternum": "metasternum",
-        "leg": "leg",
-        "prothorax": "prothorax",
-        "protothorax": "protothorax",
-        "mesothorax": "mesothorax",
-        "metathorax": "metathorax",
-        "abdomen": "abdomen",
-        "thorax": "thorax",
-        "puparium": "puparium",
-        "pupal case": "pupal case",
-        "pupal exuviae": "pupal exuviae",
-        "pupal exuvium": "pupal exuviae",
-        "pupal skin": "pupal skin",
-        "pupal shell": "pupal shell",
-        "pupa": "pupa",
-        "skin": "skin",
-        "spine": "spine",
-        "synsacrum": "synsacrum",
-        "tergum": "tergum",
-        "glabella": "glabella",
-        "pygidium": "pygidium",
-        "tooth": "tooth",
-        "teeth": "tooth",
-        "denticle": "tooth",
-        "jaw": "jaw",
-        "metacoxa": "leg",
-        "metanotum": "metanotum",
-        "mandible": "mandible",
-        "coxite": "coxite",
-        "malleolar": "malleolar",
-        "magnum": "magnum",
-        "tendon": "tendon",
-        "trochanter": "trochanter",
-        "pelvis": "pelvis",
-        "entocuneiform": "entocuneiform",
-        "naviculocuboid": "naviculocuboid",
-        "urostyle": "urostyle",
-        "skeleton": "skeleton",
-        "horn": "horn",
-        "dentary": "dentary",
-        "dentaries": "dentary",
-        "urohyal": "urohyal",
-        "metapodial": "metapodial",
-        "carpometacarpus": "carpometacarpus",
-        "metacarpal": "metacarpal",
-        "scaphoid": "scaphoid",
-        "fin": "fin",
-        "trackway": "trackway",
-        "antler": "antler",
-        "unciform": "unciform",
-        "navicular": "navicular",
-        "pisiform": "pisiform",
-        "baculum": "baculum",
-        "patella": "patella",
-        "Ectocuneiform": "ectocuneiform",
-        "astragalus": "astragalus",
-        "antler": "antler",
-        "trapezoid": "trapezoid",
-        "palatine": "palatine",
-        "ceratohyals": "ceratohyals",
-        "rostrum": "rostrum",
-        "sternebra": "sternebra",
-        "epiplastron": "epiplastron",
-        "xiphiplastron": "xiphiplastron",
-        "hyoplastron": "hyoplastron",
-        "hypoplastron": "hypoplastron",
-        "cleithrum": "cleithrum",
-        "entoplastron": "entoplastron",
-        "plastron": "plastron",
-        "mesocuneiform": "mesocuneiform",
-        "pterygoid": "pterygoid",
-        "feather": "feather",
-        "suprapygal": "suprapygal",
-        "pygal": "pygal",
-        "furcula": "furcula",
-        "acetabulum": "acetabulum",
-        "preopercular": "preopercular",
-        "opercular": "opercular",
-        "leaf": "leaf",
-        "frond": "frond",
-        "bone": "bone",
-        "vomer": "vomer",
-        "navicula": "navicula",
-        "malleolus": "malleolus",
-    }
+    def __init__(self, elements: list[dict]):
+        self.elements = self.airtable_to_dataframe(elements)
+        self.lookup = self._build_elements_lookup(self.elements)
 
-    match = ""
+    @staticmethod
+    def _build_elements_lookup(elements: pd.DataFrame) -> None:
+        """
+        Builds a lookup dictionary mapping all possible names and synonyms to the main element name.
+        """
+        lookup = {}
+        for _, row in elements.iterrows():
+            main_name = str(row["name"]).strip()
+            if main_name:
+                lookup[main_name.lower()] = {
+                    "name": main_name,
+                    "record_id": row["record_id"],
+                    "parent_name": row.get("parent_name", ""),
+                    "accept_partial_match": row.get("accept_partial_match", False),
+                    "children_count": len(row.get("children", [])),
+                }
+            synonyms = row.get("synonyms")
+            if synonyms:
+                for synonym in synonyms:
+                    synonym = synonym.strip()
+                    if synonym:
+                        lookup[synonym.lower()] = {
+                            "name": main_name,
+                            "record_id": row["record_id"],
+                            "parent_name": row.get("parent_name", ""),
+                            "accept_partial_match": row.get(
+                                "accept_partial_match", False
+                            ),
+                            "children_count": len(row.get("children", [])),
+                        }
+        # Sort the lookup so iteration happens in a predictable order.
+        # Primary sort: children_count (descending) so entries with more children
+        # are prioritized. Secondary sort: key length (descending) so longer
+        # keys are matched before shorter ones when doing substring matches.
+        # Sort so entries with fewer children come first, and for equal
+        # children_count prefer longer keys (so we still match longer names first).
+        sorted_items = sorted(
+            lookup.items(),
+            key=lambda kv: (kv[1].get("children_count", 0), -len(kv[0])),
+        )
 
-    for element in elements.keys():
-        if element in cleaned_val:
-            matched_element = f"{element};" if match else element
-            match += matched_element
-            break
+        # Return a dict with insertion order matching our sort.
+        return dict(sorted_items)
 
-    return match
+    @staticmethod
+    def airtable_to_dataframe(records: list[dict]) -> pd.DataFrame:
+        """Fetches all records from the given Airtable table and converts them to a DataFrame."""
+        elements = pd.DataFrame([record["fields"] for record in records]).fillna("")
+        elements["record_id"] = [record["id"] for record in records]
+        elements["synonyms"] = elements["synonyms"].apply(lambda x: x if x else [])
+
+        def to_list(x):
+            return x if isinstance(x, list) else []
+
+        elements["parent_name"] = elements["parent_name"].apply(to_list)
+        elements["parent_id"] = elements["parent_id"].apply(to_list)
+
+        return elements
+
+    @staticmethod
+    def _clean_element(element: str) -> str:
+        """Cleans and normalizes the element name using the provided lookup dictionary."""
+        if not isinstance(element, str) or not element.strip():
+            return ""
+
+        return element.replace("?", "").strip().lower()
+
+    def match(self, element: str) -> dict | None:
+        """
+        Matches an element string to element names, excluding any that are parents of other matched cultures.
+
+        Args:
+            element: The element term string.
+
+        Returns:
+            A matched element record as a dict, or None if no match made.
+        """
+        if not element or not isinstance(element, str):
+            return None
+
+        cleaned_element = self._clean_element(element)
+
+        match = None
+
+        sorted_lookup = sorted(
+            self.lookup.items(),
+            reverse=True,
+            key=lambda item: len(item[0]),
+        )
+
+        # Iterate over sorted keys to prioritize longer matches first
+        for key, value in sorted_lookup:
+            if key in cleaned_element:
+                match = value
+                break
+
+        return match
