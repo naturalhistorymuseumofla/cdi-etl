@@ -19,6 +19,7 @@ class Elements:
             if main_name:
                 lookup[main_name.lower()] = {
                     "name": main_name,
+                    "id": row["id"],
                     "record_id": row["record_id"],
                     "parent_name": row.get("parent_name", ""),
                     "accept_partial_match": row.get("accept_partial_match", False),
@@ -38,7 +39,6 @@ class Elements:
                             ),
                             "children_count": len(row.get("children", [])),
                         }
-        # Sort the lookup so iteration happens in a predictable order.
         # Primary sort: children_count (descending) so entries with more children
         # are prioritized. Secondary sort: key length (descending) so longer
         # keys are matched before shorter ones when doing substring matches.
@@ -75,7 +75,7 @@ class Elements:
 
         return element.replace("?", "").strip().lower()
 
-    def match(self, element: str) -> dict | None:
+    def match(self, element: str) -> list[dict] | None:
         """
         Matches an element string to element names, excluding any that are parents of other matched cultures.
 
@@ -83,25 +83,38 @@ class Elements:
             element: The element term string.
 
         Returns:
-            A matched element record as a dict, or None if no match made.
+            A matched element record as a list of dicts, or None if no match made.
         """
         if not element or not isinstance(element, str):
             return None
 
         cleaned_element = self._clean_element(element)
 
-        match = None
-
-        sorted_lookup = sorted(
-            self.lookup.items(),
-            reverse=True,
-            key=lambda item: len(item[0]),
-        )
+        matches = []
 
         # Iterate over sorted keys to prioritize longer matches first
-        for key, value in sorted_lookup:
+        for key, value in self.lookup.items():
             if key in cleaned_element:
-                match = value
+                matches.append(value)
                 break
 
-        return match
+        return matches
+
+    def get_elements(self) -> pd.DataFrame:
+        """Returns the elements DataFrame."""
+        df = self.elements.copy()
+        df = df[
+            [
+                "id",
+                "name",
+                "domains",
+                "synonyms",
+                "uberon_id",
+                "description",
+                "parent_id",
+            ]
+        ]
+        df["parent_id"] = df["parent_id"].apply(
+            lambda x: x[0] if isinstance(x, list) and x else []
+        )
+        return df
