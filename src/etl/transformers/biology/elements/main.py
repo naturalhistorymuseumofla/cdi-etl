@@ -19,4 +19,5 @@ def transform_biology_elements(elements: list[dict], catalogue_df) -> Elements:
             )
 
     elements_join_df = pd.DataFrame(elements_join_table)
+
     return elements.get_elements(), elements_join_df
