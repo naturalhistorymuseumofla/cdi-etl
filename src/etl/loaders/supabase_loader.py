@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-
+import json
 import pandas as pd
 
 from config.settings import settings
@@ -136,7 +136,19 @@ class SupabaseLoader:
                 query = self.client.table(table_name).upsert(
                     on_conflict=primary_key, json=chunk
                 )
-            response = query.execute()
+            try:
+                response = query.execute()
+            except Exception as e:
+                # Print helpful context before re-raising so you can see failing payload
+                print(
+                    f"\nSupabase API error when inserting to '{table_name}' (upsert={upsert}, primary_key={primary_key})"
+                )
+                print(f"Chunk index start={i} size={len(chunk)}. Sample payload:")
+                try:
+                    print(json.dumps(chunk[:3], default=str, indent=2))
+                except Exception:
+                    print(chunk[:3])
+                raise e
             results.extend(response.data)
 
         operations = self._count_updates(results)
@@ -261,10 +273,11 @@ class SupabaseLoader:
 
         # Build sets for comparison
         desired_relations = {
-            (row[source_key], row[target_key]) for _, row in join_df.iterrows()
+            (int(row[source_key]), int(row[target_key]))
+            for _, row in join_df.iterrows()
         }
         existing_relations = {
-            (row[source_key], row[target_key]) for row in existing_rows
+            (int(row[source_key]), int(row[target_key])) for row in existing_rows
         }
 
         # Calculate differences

@@ -1,4 +1,5 @@
 import pandas as pd
+from ...utils import to_pg_array
 
 
 class Elements:
@@ -114,7 +115,15 @@ class Elements:
                 "parent_id",
             ]
         ]
-        df["parent_id"] = df["parent_id"].apply(
-            lambda x: x[0] if isinstance(x, list) and x else []
+        df["parent_id"] = (
+            df["parent_id"]
+            .apply(lambda x: x[0] if isinstance(x, list) and x else None)
+            .astype("Int64")
+        )
+        df["synonyms"] = df["synonyms"].apply(
+            lambda x: to_pg_array(x) if isinstance(x, list) else to_pg_array([])
+        )
+        df["domains"] = df["domains"].apply(
+            lambda x: to_pg_array(x) if isinstance(x, list) else to_pg_array([])
         )
         return df
