@@ -109,8 +109,6 @@ def transform_mineralogy_catalogue(
         A transformed DataFrame with cleaned and normalized fields.
 
     """
-    specimens = transform_mineralogy_specimens(df)
-    df["specimens"] = specimens
 
     df.drop(
         columns=["department", "specimen_taxon_group", "mineral_group"], inplace=True

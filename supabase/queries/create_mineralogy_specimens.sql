@@ -4,6 +4,7 @@ create table mineralogy_specimens (
   updated_at timestamptz default now(),
 
   -- EMu fields
+  specimen_id uuid unique not null,
   catalogue_irn bigint references mineralogy_catalogue(irn),
   taxonomy_irn bigint references mineralogy_taxonomy(irn),
   is_primary_specimen boolean,

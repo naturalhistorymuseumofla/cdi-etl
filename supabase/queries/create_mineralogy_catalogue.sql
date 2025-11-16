@@ -20,7 +20,6 @@ create table mineralogy_catalogue (
   length float,
   width float,
   height float,
-  specimens jsonb
 );
 
 
