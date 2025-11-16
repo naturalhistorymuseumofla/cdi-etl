@@ -1,4 +1,4 @@
-import hashlib
+import uuid
 import re
 
 import pandas as pd
@@ -105,12 +105,12 @@ def transform_mineralogy_specimens(df: pd.DataFrame) -> list[dict]:
 
     for record in records:
         if not isinstance(record["mineral_group"], list):
-            specimens.append([])
+            # specimens.append([])
             continue
         primary_specimen_irn = record["specimen_taxon_group"][0].get(
             "specimen_taxon_irn", ""
         )
-        catalogue_specimens = []
+        # catalogue_specimens = []
         for mineral in record["mineral_group"]:
             if not mineral.get("mineral_taxon_irn"):
                 continue
@@ -122,14 +122,19 @@ def transform_mineralogy_specimens(df: pd.DataFrame) -> list[dict]:
                 f"{record['irn']}_"
                 f"{mineral.get('mineral_taxon_irn')}_"
                 f"{mineral.get('MinVariety', 'no-variety')}_"
-                f"{mineral.get('MinColor', 'no-colors')}"
+                f"{mineral.get('MinColor', 'no-colors')}_"
+                f"{mineral.get('MinHabit', 'no-habit')}_"
+                f"{mineral.get('MinDisplayQual', 'no-display')}"
             )
             # Hash composite key
-            composite_key = hashlib.md5(composite_key.encode()).hexdigest()
+            # composite_key = hashlib.md5(composite_key.encode()).hexdigest()
+            uid = uuid.uuid5(uuid.NAMESPACE_DNS, composite_key)
+            composite_key = str(uid)
             is_display_quality = mineral.get("MinDisplayQual", "").lower() == "yes"
             specimen = {
                 "specimen_id": composite_key,
                 "taxonomy_irn": mineral.get("mineral_taxon_irn"),
+                "catalogue_irn": record["irn"],
                 "is_primary_specimen": is_primary_specimen,
                 "variety": mineral.get("MinVariety", None),
                 "is_display_quality": is_display_quality,
@@ -137,7 +142,14 @@ def transform_mineralogy_specimens(df: pd.DataFrame) -> list[dict]:
                 "colors": clean_color(mineral.get("MinColor", "")),
                 "habit": mineral.get("MinHabit", None),
             }
-            catalogue_specimens.append(specimen)
-        specimens.append(catalogue_specimens)
+            specimens.append(specimen)
+        # specimens.append(catalogue_specimens)
 
-    return specimens
+    specimens_df = pd.DataFrame(specimens)
+
+    # Remove duplicates based on specimen_id
+    specimens_df = specimens_df.drop_duplicates(
+        subset=["specimen_id"], keep="first"
+    ).reset_index(drop=True)
+
+    return specimens_df
