@@ -4,17 +4,17 @@ drop extension if exists "pg_net";
 
 drop extension if exists "pgjwt";
 
-create sequence "public"."biology_catalogue_id_seq";
+CREATE SEQUENCE IF NOT EXISTS public.biology_catalogue_id_seq;
 
-create sequence "public"."biology_taxonomy_id_seq";
+CREATE SEQUENCE IF NOT EXISTS public.biology_taxonomy_id_seq;
 
-create sequence "public"."media_catalogue_id_seq";
+CREATE SEQUENCE IF NOT EXISTS public.media_catalogue_id_seq;
 
-create sequence "public"."media_id_seq";
+CREATE SEQUENCE IF NOT EXISTS public.media_id_seq;
 
-create sequence "public"."mineralogy_catalogue_id_seq";
+CREATE SEQUENCE IF NOT EXISTS public.mineralogy_catalogue_id_seq;
 
-create sequence "public"."mineralogy_taxonomy_id_seq";
+CREATE SEQUENCE IF NOT EXISTS public.mineralogy_taxonomy_id_seq;
 
 drop trigger if exists "handle_updated_at" on "public"."history_catalogue";
 
@@ -284,19 +284,35 @@ revoke update on table "public"."taxonomy" from "service_role";
 
 alter table "public"."history_catalogue" drop constraint "history_catalogue_irn_key";
 
+-- If media_catalogue has a FK referencing media(id), drop it first so we can remove
+-- the media id constraint/index safely. We'll recreate/validate it later in the migration.
+ALTER TABLE IF EXISTS public.media_catalogue
+  DROP CONSTRAINT IF EXISTS media_catalogue_media_id_fkey;
+
 alter table "public"."media" drop constraint "media_id_key";
+
+-- If minerals_catalogue_taxonomy_join has a FK referencing minerals(irn), drop it
+-- first so we can remove the minerals irn constraint/index safely. We'll recreate/validate it later.
+ALTER TABLE IF EXISTS public.minerals_catalogue_taxonomy_join
+  DROP CONSTRAINT IF EXISTS minerals_catalogue_taxonomy_join_irn_fkey;
 
 alter table "public"."minerals" drop constraint "minerals_irn_key";
 
-alter table "public"."minerals_catalogue_taxonomy_join" drop constraint "minerals_catalogue_taxonomy_join_irn_fkey";
+-- Make these conditional in case they don't exist in the target DB already.
+ALTER TABLE IF EXISTS public.minerals_catalogue_taxonomy_join
+  DROP CONSTRAINT IF EXISTS minerals_catalogue_taxonomy_join_irn_fkey;
 
-alter table "public"."minerals_catalogue_taxonomy_join" drop constraint "minerals_catalogue_taxonomy_join_taxon_irn_fkey";
+ALTER TABLE IF EXISTS public.minerals_catalogue_taxonomy_join
+  DROP CONSTRAINT IF EXISTS minerals_catalogue_taxonomy_join_taxon_irn_fkey;
 
 alter table "public"."minerals_taxonomy" drop constraint "minerals_taxonomy_irn_key";
 
+
 alter table "public"."organisms" drop constraint "organisms_taxon_irn_fkey";
 
-alter table "public"."media_catalogue" drop constraint "media_catalogue_media_id_fkey";
+-- Make this conditional in case the constraint isn't present in the target DB.
+ALTER TABLE IF EXISTS public.media_catalogue
+  DROP CONSTRAINT IF EXISTS media_catalogue_media_id_fkey;
 
 drop function if exists "public"."get_department"(irn_value integer);
 
@@ -502,9 +518,23 @@ alter table "public"."media" alter column "created_at" drop not null;
 
 alter table "public"."media" alter column "dams_id" set data type bigint using "dams_id"::bigint;
 
-alter table "public"."media" alter column "id" set default nextval('public.media_id_seq'::regclass);
-
-alter table "public"."media" alter column "id" drop identity;
+-- If the column is an identity column, drop the identity first (no-op if not present),
+-- then set the sequence default. This avoids errors when the source DB uses IDENTITY.
+ALTER TABLE IF EXISTS public.media
+  ALTER COLUMN id DROP IDENTITY IF EXISTS;
+-- Only set the default if the sequence exists. Some targets may not have the
+-- sequence created (or it may be managed differently), so guard the ALTER.
+DO $do$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_namespace n ON c.relnamespace = n.oid
+    WHERE c.relkind = 'S' AND c.relname = 'media_id_seq' AND n.nspname = 'public'
+  ) THEN
+    EXECUTE 'ALTER TABLE IF EXISTS public.media ALTER COLUMN id SET DEFAULT nextval(''public.media_id_seq''::regclass)';
+  END IF;
+END
+$do$;
 
 alter table "public"."media" alter column "is_authoritative" set default false;
 
@@ -512,25 +542,38 @@ alter table "public"."media_catalogue" add column "updated_at" timestamp with ti
 
 alter table "public"."media_catalogue" alter column "created_at" drop not null;
 
-alter table "public"."media_catalogue" alter column "id" set default nextval('public.media_catalogue_id_seq'::regclass);
-
-alter table "public"."media_catalogue" alter column "id" drop identity;
+-- Same for media_catalogue.id: drop identity if present, then set default to sequence.
+ALTER TABLE IF EXISTS public.media_catalogue
+  ALTER COLUMN id DROP IDENTITY IF EXISTS;
+-- Only set the default if the sequence exists (guarded for idempotency).
+DO $do$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_namespace n ON c.relnamespace = n.oid
+    WHERE c.relkind = 'S' AND c.relname = 'media_catalogue_id_seq' AND n.nspname = 'public'
+  ) THEN
+    EXECUTE 'ALTER TABLE IF EXISTS public.media_catalogue ALTER COLUMN id SET DEFAULT nextval(''public.media_catalogue_id_seq''::regclass)';
+  END IF;
+END
+$do$;
 
 alter table "public"."media_catalogue" alter column "irn" set not null;
 
 alter table "public"."media_catalogue" alter column "irn" set data type bigint using "irn"::bigint;
 
-alter sequence "public"."biology_catalogue_id_seq" owned by "public"."biology_catalogue"."id";
+-- Guard these in case the sequence doesn't exist in the target DB.
+ALTER SEQUENCE IF EXISTS public.biology_catalogue_id_seq OWNED BY public.biology_catalogue.id;
 
-alter sequence "public"."biology_taxonomy_id_seq" owned by "public"."biology_taxonomy"."id";
+ALTER SEQUENCE IF EXISTS public.biology_taxonomy_id_seq OWNED BY public.biology_taxonomy.id;
 
-alter sequence "public"."media_catalogue_id_seq" owned by "public"."media_catalogue"."id";
+ALTER SEQUENCE IF EXISTS public.media_catalogue_id_seq OWNED BY public.media_catalogue.id;
 
-alter sequence "public"."media_id_seq" owned by "public"."media"."id";
+ALTER SEQUENCE IF EXISTS public.media_id_seq OWNED BY public.media.id;
 
-alter sequence "public"."mineralogy_catalogue_id_seq" owned by "public"."mineralogy_catalogue"."id";
+ALTER SEQUENCE IF EXISTS public.mineralogy_catalogue_id_seq OWNED BY public.mineralogy_catalogue.id;
 
-alter sequence "public"."mineralogy_taxonomy_id_seq" owned by "public"."mineralogy_taxonomy"."id";
+ALTER SEQUENCE IF EXISTS public.mineralogy_taxonomy_id_seq OWNED BY public.mineralogy_taxonomy.id;
 
 drop sequence if exists "public"."history_catalogue_id_seq";
 
@@ -816,22 +859,88 @@ grant truncate on table "public"."mineralogy_taxonomy" to "service_role";
 
 grant update on table "public"."mineralogy_taxonomy" to "service_role";
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.biology_catalogue FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime('updated_at');
+-- Create handle_updated_at triggers only when the extension function exists
+DO $do$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE p.proname = 'moddatetime' AND n.nspname = 'extensions'
+  ) THEN
+    -- biology_catalogue
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE t.tgname = 'handle_updated_at' AND c.relname = 'biology_catalogue'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.biology_catalogue FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(''updated_at'')';
+    END IF;
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.biology_taxonomy FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime('updated_at');
+    -- biology_taxonomy
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE t.tgname = 'handle_updated_at' AND c.relname = 'biology_taxonomy'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.biology_taxonomy FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(''updated_at'')';
+    END IF;
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.media FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime('updated_at');
+    -- media
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE t.tgname = 'handle_updated_at' AND c.relname = 'media'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.media FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(''updated_at'')';
+    END IF;
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.media_catalogue FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime('updated_at');
+    -- media_catalogue
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE t.tgname = 'handle_updated_at' AND c.relname = 'media_catalogue'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.media_catalogue FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(''updated_at'')';
+    END IF;
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.mineralogy_catalogue FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime('updated_at');
+    -- mineralogy_catalogue
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE t.tgname = 'handle_updated_at' AND c.relname = 'mineralogy_catalogue'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.mineralogy_catalogue FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(''updated_at'')';
+    END IF;
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.mineralogy_taxonomy FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime('updated_at');
+    -- mineralogy_taxonomy
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE t.tgname = 'handle_updated_at' AND c.relname = 'mineralogy_taxonomy'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.mineralogy_taxonomy FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(''updated_at'')';
+    END IF;
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.anthropology_catalogue FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime('updated_at');
+    -- anthropology_catalogue
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE t.tgname = 'handle_updated_at' AND c.relname = 'anthropology_catalogue'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.anthropology_catalogue FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(''updated_at'')';
+    END IF;
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.anthropology_catalogue_cultures_join FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime('updated_at');
+    -- anthropology_catalogue_cultures_join
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE t.tgname = 'handle_updated_at' AND c.relname = 'anthropology_catalogue_cultures_join'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.anthropology_catalogue_cultures_join FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(''updated_at'')';
+    END IF;
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.anthropology_cultures FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime('updated_at');
+    -- anthropology_cultures
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE t.tgname = 'handle_updated_at' AND c.relname = 'anthropology_cultures'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.anthropology_cultures FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(''updated_at'')';
+    END IF;
+
+  END IF; -- function exists
+END
+$do$;
 
 
