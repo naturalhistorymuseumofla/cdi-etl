@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     supabase_key: str | None = None
     mindat_geomaterials_url: str | None = None
 
+    # File paths to gbif taxonomic backbone dumps
+    path_to_gbif_dumps: str | None = None
+
     # Use pydantic v2 style model_config with SettingsConfigDict
     model_config: SettingsConfigDict = SettingsConfigDict(env_file=".env")
 
