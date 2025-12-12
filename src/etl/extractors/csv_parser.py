@@ -8,12 +8,22 @@ To import:
 import pandas as pd
 
 
-def read_csv(file_path: str) -> pd.DataFrame:
+def read_csv(
+    file_path: str,
+    delimiter: str = ",",
+    compression: str = None,
+    columns: list[str] = None,
+    dtype: dict = None,
+) -> pd.DataFrame:
     """Reads a CSV file and returns a DataFrame."""
     return pd.read_csv(
         file_path,
         keep_default_na=False,
-        engine="pyarrow",
         on_bad_lines="warn",
         parse_dates=False,  # Prevent automatic date parsing
+        delimiter=delimiter,
+        compression=compression,
+        usecols=columns,
+        low_memory=False,
+        dtype=dtype,
     )
