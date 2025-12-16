@@ -6,11 +6,6 @@ from etl.transformers.biology.taxonomy import transform_biology_taxonomy
 from etl.transformers.biology.gbif.matcher import GbifMatcher
 from etl.transformers.biology.gbif.main import match_gbif_records
 
-import pandas as pd
-
-gbif_taxonomy = pd.read_csv(
-    "data/gbif/Taxon.tsv", sep="\t", low_memory=False, on_bad_lines="skip"
-)
 
 # EMu records extraction
 catalogue_records = extractors.read_csv("data/biology_catalogue.csv")
@@ -27,9 +22,13 @@ gbif_occurences = extractors.read_csv(
 )
 
 gbif_vernacular_names = extractors.read_csv(
-    "data/gbif/VernacularName.csv",
-    columns=["taxonID", "vernacularName", "source"],
-    dtype={"taxonID": str, "vernacularName": str, "source": str},
+    "data/gbif/gbif_taxonomic_backbone.csv",
+    dtype={
+        "taxonID": str,
+        "vernacularName": str,
+        "source": str,
+        "language": str,
+    },
 )
 
 # Transform EMu data
