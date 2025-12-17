@@ -5,6 +5,17 @@ Script to transform GBIF taxonomic backbone data for use in the ETL pipeline.
 import pandas as pd
 from config.settings import settings
 from pathlib import Path
+import inflect
+
+
+def clean_vernacular_name(name: str, inflection_engine) -> str:
+    """Cleans a vernacular name by stripping whitespace and capitalizing."""
+    name = name.strip().capitalize()
+    try:
+        name = inflection_engine.singular_noun(name) or name
+    except Exception:
+        pass
+    return name
 
 
 if __name__ == "__main__":
@@ -57,13 +68,22 @@ if __name__ == "__main__":
     vernacular_names.query("language == 'en'", inplace=True)
     vernacular_names.drop(columns=["language"], inplace=True)
 
+    # Remove vernacular names that are illegal characters
+    vernacular_names = vernacular_names[
+        ~vernacular_names.vernacularName.str.contains(r"\|")
+    ]
+
+    # Clean vernacular names by stripping whitespace and capitalizing
+    inflection_engine = inflect.engine()
+    vernacular_names["vernacularName"] = vernacular_names["vernacularName"].apply(
+        lambda x: clean_vernacular_name(x, inflection_engine)
+    )
     # Drop taxon records without canonical names
     taxon.dropna(subset=["canonicalName"], inplace=True)
 
     # Merge and export to CSV
-    merged = pd.merge(vernacular_names, taxon, how="left", on="taxonID").to_csv(
-        basepath / "gbif_taxonomic_backbone.csv", index=False
-    )
+    merged = pd.merge(vernacular_names, taxon, how="left", on="taxonID")
+    merged.to_csv(basepath / "gbif_taxonomic_backbone.csv", index=False)
 
     print(
         f"Transformed GBIF taxonomic backbone data saved to {basepath}/gbif_taxonomic_backbone.csv"
