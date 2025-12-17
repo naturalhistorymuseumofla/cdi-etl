@@ -1,4 +1,5 @@
 import pandas as pd
+import inflect
 
 
 class GbifMatcher:
@@ -9,6 +10,7 @@ class GbifMatcher:
         vernaculars: pd.DataFrame,
         occurences: pd.DataFrame,
     ):
+        self.inflection_engine = inflect.engine()
         self.vernaculars = vernaculars
         self.occurences = occurences
         self._assign_source_weight()
@@ -42,11 +44,6 @@ class GbifMatcher:
             right_on="taxonID",
             how="left",
         ).dropna(subset=["vernacularName"])
-
-        # Clean vernacular names
-        merged["vernacularName"] = merged["vernacularName"].apply(
-            lambda x: x.strip().capitalize()
-        )
 
         # Assign weights to sources for prioritization
         merged.sort_values(

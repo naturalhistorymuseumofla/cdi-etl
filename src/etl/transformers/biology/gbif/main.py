@@ -18,7 +18,8 @@ def match_gbif_records(
     ):
         match = vernaculars_matcher.match(guid)
         if match:
-            gbif_ids.append(int(match["gbif_id"]))
+            gbif_id = match["gbif_id"]
+            gbif_ids.append(gbif_id)
             vernaculars[taxon_irn] = {
                 "vernacular_name": match["vernacular_name"],
                 "source": match["source"],
@@ -72,5 +73,8 @@ def match_gbif_records(
     taxonomy_df["vernacular_name"] = vernaculars_names
     taxonomy_df["vernacular_name_source"] = sources
     catalogue_df["gbif_id"] = gbif_ids
+
+    # Convert gbif_id to Int64 to allow for nulls
+    catalogue_df["gbif_id"] = catalogue_df["gbif_id"].astype("Int64")
 
     return catalogue_df, taxonomy_df
