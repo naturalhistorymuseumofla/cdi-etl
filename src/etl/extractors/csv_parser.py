@@ -19,7 +19,7 @@ def read_csv(
     return pd.read_csv(
         file_path,
         keep_default_na=False,
-        on_bad_lines="warn",
+        on_bad_lines="skip",
         parse_dates=False,  # Prevent automatic date parsing
         delimiter=delimiter,
         compression=compression,

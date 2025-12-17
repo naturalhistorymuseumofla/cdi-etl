@@ -11,10 +11,28 @@ class GbifMatcher:
     ):
         self.vernaculars = vernaculars
         self.occurences = occurences
+        self._assign_source_weight()
         self.occurence_map = self._create_occurence_vernacular_map()
+        self.canonical_name_map = self._create_canonical_name_vernacular_map()
+
+    def _assign_source_weight(self):
+        weights = {
+            "IOC World Bird List, v13.2": 5,
+            "The Paleobiology Database": 4,
+            "Checklist of Vermont Species": 3,
+            "Martha's Vineyard species checklist": 3,
+            "Multilingual IOC World Bird List, v11.2": 2,
+            "Catalogue of Life Checklist": 2,
+            "The IUCN Red List of Threatened Species": 1,
+        }
+        self.vernaculars["source_weight"] = self.vernaculars["source"].apply(
+            lambda x: weights.get(x, 0)
+        )
 
     def _create_occurence_vernacular_map(self) -> dict:
         """Creates a mapping from occurrence IDs to vernacular names."""
+
+        # Convert taxonKey
 
         # Merge occurences with vernacular names on taxonKey and taxonID
         merged = pd.merge(
@@ -30,20 +48,7 @@ class GbifMatcher:
             lambda x: x.strip().capitalize()
         )
 
-        def assign_source_weight(source):
-            weights = {
-                "IOC World Bird List, v13.2": 5,
-                "The Paleobiology Database": 4,
-                "Checklist of Vermont Species": 3,
-                "Martha's Vineyard species checklist": 3,
-                "Multilingual IOC World Bird List, v11.2": 2,
-                "Catalogue of Life Checklist": 2,
-                "The IUCN Red List of Threatened Species": 1,
-            }
-            return weights.get(source, 0)
-
         # Assign weights to sources for prioritization
-        merged["source_weight"] = merged["source"].apply(assign_source_weight)
         merged.sort_values(
             by=["occurrenceID", "source_weight"], ascending=[True, False], inplace=True
         )
@@ -61,6 +66,27 @@ class GbifMatcher:
         }
         return map
 
+    def _create_canonical_name_vernacular_map(self) -> dict:
+        """Creates a mapping from canonical names to vernacular names."""
+
+        # Sort vernaculars by source weight and drop duplicates on canonicalName
+        vernaculars = self.vernaculars.sort_values(
+            by=["source_weight"], ascending=False
+        ).drop_duplicates(subset=["canonicalName"], keep="first")
+
+        map = {
+            row.canonicalName: {
+                "vernacular_name": row.vernacularName,
+                "source": row.source,
+            }
+            for row in vernaculars.itertuples(index=False)
+        }
+        return map
+
     def match(self, guid: str) -> dict | None:
         """Matches a given GUID to a vernacular name."""
         return self.occurence_map.get(guid, None)
+
+    def match_canonical_name(self, canonical_name: str) -> dict | None:
+        """Matches a given canonical name to a vernacular name."""
+        return self.canonical_name_map.get(canonical_name, None)

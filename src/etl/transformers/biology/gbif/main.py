@@ -30,6 +30,33 @@ def match_gbif_records(
     vernaculars_names = []
     sources = []
 
+    for irn, taxon_rank, species, genus, subspecies in zip(
+        taxonomy_df["irn"],
+        taxonomy_df["taxon_rank"],
+        taxonomy_df["species"],
+        taxonomy_df["genus"],
+        taxonomy_df["subspecies"],
+    ):
+        # Attempt to match by canonical name if no direct match found
+        if irn not in vernaculars:
+            taxon_rank = taxon_rank.lower() if pd.notna(taxon_rank) else ""
+            if taxon_rank == "species":
+                canonical_name = " ".join([genus, species])
+            elif taxon_rank == "genus":
+                canonical_name = genus
+            elif taxon_rank == "subspecies":
+                canonical_name = " ".join([genus, species, subspecies])
+            else:
+                canonical_name = None
+
+            if canonical_name:
+                match = vernaculars_matcher.match_canonical_name(canonical_name)
+                if match:
+                    vernaculars[irn] = {
+                        "vernacular_name": match["vernacular_name"],
+                        "source": match["source"],
+                    }
+
     for irn, name, src in zip(
         taxonomy_df["irn"],
         taxonomy_df["vernacular_name"],
