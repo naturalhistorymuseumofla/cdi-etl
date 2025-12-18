@@ -105,8 +105,6 @@ if __name__ == "__main__":
     # Finalize media_catalogue dataframe for loading
     media_catalogue["domain"] = "biology_catalogue"
     media_catalogue.drop(columns=["dams_id"], inplace=True)
-    media_catalogue = media_catalogue.reset_index().rename(columns={"index": "id"})
-    media_catalogue["id"] = media_catalogue["id"] + 1
 
     loader.sync_join_table(
         "media_catalogue",
