@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_key: str | None = None
     mindat_geomaterials_url: str | None = None
+    path_to_supabase_biology_catalogue: str | None = None
 
     # File paths to gbif taxonomic backbone dumps
     path_to_gbif_dumps: str | None = None
